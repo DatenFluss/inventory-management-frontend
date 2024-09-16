@@ -1,8 +1,9 @@
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { Navbar, Nav } from 'react-bootstrap';
 
-function Navbar() {
+function NavigationBar() {
     const { authToken, setAuthToken } = useContext(AuthContext);
 
     const handleLogout = () => {
@@ -11,35 +12,34 @@ function Navbar() {
     };
 
     return (
-        <nav className="navbar navbar-expand-lg navbar-light bg-light">
-            <Link className="navbar-brand" to="/">Inventory System</Link>
-            <div className="collapse navbar-collapse">
-                <ul className="navbar-nav ml-auto">
+        <Navbar bg="light" expand="lg">
+            <Navbar.Brand as={Link} to="/">
+                Inventory System
+            </Navbar.Brand>
+            <Navbar.Toggle aria-controls="basic-navbar-nav" />
+            <Navbar.Collapse id="basic-navbar-nav">
+                <Nav className="ms-auto">
                     {!authToken ? (
                         <>
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/login">Login</Link>
-                            </li>
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/register">Register</Link>
-                            </li>
+                            <Nav.Link as={Link} to="/login">
+                                Login
+                            </Nav.Link>
+                            <Nav.Link as={Link} to="/register">
+                                Register
+                            </Nav.Link>
                         </>
                     ) : (
                         <>
-                            <li className="nav-item">
-                                <Link className="nav-link" to="/dashboard">Dashboard</Link>
-                            </li>
-                            <li className="nav-item">
-                                <button className="btn btn-link nav-link" onClick={handleLogout}>
-                                    Logout
-                                </button>
-                            </li>
+                            <Nav.Link as={Link} to="/dashboard">
+                                Dashboard
+                            </Nav.Link>
+                            <Nav.Link onClick={handleLogout}>Logout</Nav.Link>
                         </>
                     )}
-                </ul>
-            </div>
-        </nav>
+                </Nav>
+            </Navbar.Collapse>
+        </Navbar>
     );
 }
 
-export default Navbar;
+export default NavigationBar;

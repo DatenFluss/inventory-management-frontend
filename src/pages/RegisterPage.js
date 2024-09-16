@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { Container, Form, Button, Alert } from 'react-bootstrap';
 
 function RegisterPage() {
-    const history = useNavigate();
+    const navigate = useNavigate();
 
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
@@ -15,64 +16,63 @@ function RegisterPage() {
         e.preventDefault();
 
         const registerRequest = {
-            username: username,
-            email: email,
-            password: password,
+            username,
+            email,
+            password,
         };
 
-        api.post('/api/auth/signup', registerRequest)
-            .then(response => {
+        api
+            .post('/api/auth/signup', registerRequest)
+            .then((response) => {
                 console.log('Registration successful:', response);
-                history.push('/login');
+                navigate('/login');
             })
-            .catch(error => {
+            .catch((error) => {
                 setError('Registration failed. Please try again.');
                 console.error('Registration error:', error);
             });
     };
 
     return (
-        <div className="container mt-5">
+        <Container className="mt-5">
             <h2>Register</h2>
-            {error && <div className="alert alert-danger">{error}</div>}
-            <form onSubmit={handleSubmit}>
-                {/* Username Field */}
-                <div className="form-group">
-                    <label>Username:</label>
-                    <input
+            {error && <Alert variant="danger">{error}</Alert>}
+            <Form onSubmit={handleSubmit}>
+                <Form.Group controlId="formUsername">
+                    <Form.Label>Username:</Form.Label>
+                    <Form.Control
                         type="text"
-                        className="form-control"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
                     />
-                </div>
-                {/* Email Field */}
-                <div className="form-group">
-                    <label>Email:</label>
-                    <input
+                </Form.Group>
+
+                <Form.Group controlId="formEmail">
+                    <Form.Label>Email:</Form.Label>
+                    <Form.Control
                         type="email"
-                        className="form-control"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
                     />
-                </div>
-                {/* Password Field */}
-                <div className="form-group">
-                    <label>Password:</label>
-                    <input
+                </Form.Group>
+
+                <Form.Group controlId="formPassword">
+                    <Form.Label>Password:</Form.Label>
+                    <Form.Control
                         type="password"
-                        className="form-control"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
-                </div>
-                {/* Submit Button */}
-                <button type="submit" className="btn btn-secondary">Register</button>
-            </form>
-        </div>
+                </Form.Group>
+
+                <Button variant="secondary" type="submit" className="mt-3">
+                    Register
+                </Button>
+            </Form>
+        </Container>
     );
 }
 
