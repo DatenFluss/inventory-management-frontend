@@ -21,7 +21,7 @@ function LoginPage() {
         };
 
         api
-            .post('/api/auth/signin', loginRequest)
+            .post('/api/users/login', loginRequest)
             .then((response) => {
                 const token = response.data.token;
                 setAuthToken(token);

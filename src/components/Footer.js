@@ -6,7 +6,7 @@ function Footer() {
         <footer className="footer bg-light text-center mt-5 py-3">
             <Container>
         <span className="text-muted">
-          &copy; {new Date().getFullYear()} Your Company Name
+          &copy; {new Date().getFullYear()} Inventory Management System
         </span>
             </Container>
         </footer>

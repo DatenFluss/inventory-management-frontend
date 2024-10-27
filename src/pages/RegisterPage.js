@@ -1,78 +1,89 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { useNavigate } from 'react-router-dom';
-import { Container, Form, Button, Alert } from 'react-bootstrap';
 
 function RegisterPage() {
-    const navigate = useNavigate();
-
     const [username, setUsername] = useState('');
-    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-
-    const [error, setError] = useState('');
+    const [email, setEmail] = useState('');
+    const [message, setMessage] = useState('');
 
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        const registerRequest = {
-            username,
-            email,
-            password,
+        const registrationData = {
+            username: username,
+            password: password,
+            email: email,
         };
 
-        api
-            .post('/api/auth/signup', registerRequest)
-            .then((response) => {
-                console.log('Registration successful:', response);
-                navigate('/login');
+        api.post('/api/users/register', registrationData)
+            .then(response => {
+                setMessage('Registration successful! Please log in.');
+                // Redirect to login page
+                // history.push('/login');
+
+                // Or clear the form fields
+                setUsername('');
+                setPassword('');
+                setEmail('');
             })
-            .catch((error) => {
-                setError('Registration failed. Please try again.');
+            .catch(error => {
+                if (error.response) {
+                    // Server responded with a status other than 2xx
+                    setMessage(`Registration failed: ${error.response.data.message || error.response.data}`);
+                } else if (error.request) {
+                    // Request was made but no response received
+                    setMessage('Registration failed: No response from server.');
+                } else {
+                    // Something else happened
+                    setMessage(`Registration failed: ${error.message}`);
+                }
                 console.error('Registration error:', error);
             });
     };
 
     return (
-        <Container className="mt-5">
-            <h2>Register</h2>
-            {error && <Alert variant="danger">{error}</Alert>}
-            <Form onSubmit={handleSubmit}>
-                <Form.Group controlId="formUsername">
-                    <Form.Label>Username:</Form.Label>
-                    <Form.Control
+        <div className="container mt-5">
+            <h2>User Registration</h2>
+            {message && <div className="alert alert-info">{message}</div>}
+            <form onSubmit={handleSubmit}>
+                {/* Username */}
+                <div className="form-group">
+                    <label>Username:</label>
+                    <input
                         type="text"
+                        className="form-control"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         required
                     />
-                </Form.Group>
-
-                <Form.Group controlId="formEmail">
-                    <Form.Label>Email:</Form.Label>
-                    <Form.Control
+                </div>
+                {/* Email */}
+                <div className="form-group">
+                    <label>Email:</label>
+                    <input
                         type="email"
+                        className="form-control"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         required
                     />
-                </Form.Group>
-
-                <Form.Group controlId="formPassword">
-                    <Form.Label>Password:</Form.Label>
-                    <Form.Control
+                </div>
+                {/* Password */}
+                <div className="form-group">
+                    <label>Password:</label>
+                    <input
                         type="password"
+                        className="form-control"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
-                </Form.Group>
-
-                <Button variant="secondary" type="submit" className="mt-3">
-                    Register
-                </Button>
-            </Form>
-        </Container>
+                </div>
+                {/* Submit Button */}
+                <button type="submit" className="btn btn-primary">Register</button>
+            </form>
+        </div>
     );
 }
 
