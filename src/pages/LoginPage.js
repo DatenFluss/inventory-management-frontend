@@ -1,67 +1,89 @@
-import React, { useState, useContext } from 'react';
-import api from '../services/api';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Container, Form, Button, Alert } from 'react-bootstrap';
+import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
 
 function LoginPage() {
-    const { setAuthToken } = useContext(AuthContext);
+    const { login, getDashboardRoute } = useAuth();
     const navigate = useNavigate();
 
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [formData, setFormData] = useState({
+        username: '',
+        password: ''
+    });
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setIsLoading(true);
 
-        const loginRequest = {
-            username,
-            password,
-        };
+        try {
+            const response = await api.post('/api/users/login', formData);
+            login(response.data.token);
 
-        api
-            .post('/api/users/login', loginRequest)
-            .then((response) => {
-                const token = response.data.token;
-                setAuthToken(token);
-                navigate('/dashboard');
-            })
-            .catch((error) => {
-                setError('Invalid username or password');
-                console.error('Login error:', error);
-            });
+            // AuthContext will determine the correct dashboard based on role
+            const dashboardRoute = getDashboardRoute();
+            navigate(dashboardRoute);
+        } catch (error) {
+            setError(error.response?.data?.message || 'Login failed. Please try again.');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
-        <Container className="mt-5">
-            <h2>Login</h2>
-            {error && <Alert variant="danger">{error}</Alert>}
-            <Form onSubmit={handleSubmit}>
-                <Form.Group controlId="formUsername">
-                    <Form.Label>Username:</Form.Label>
-                    <Form.Control
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                </Form.Group>
+        <Container className="d-flex align-items-center justify-content-center min-vh-100">
+            <Card className="w-100" style={{ maxWidth: '400px' }}>
+                <Card.Body className="p-4">
+                    <h2 className="text-center mb-4">Login</h2>
+                    {error && <Alert variant="danger">{error}</Alert>}
 
-                <Form.Group controlId="formPassword">
-                    <Form.Label>Password:</Form.Label>
-                    <Form.Control
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </Form.Group>
+                    <Form onSubmit={handleSubmit}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Username</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="username"
+                                value={formData.username}
+                                onChange={handleChange}
+                                required
+                                disabled={isLoading}
+                            />
+                        </Form.Group>
 
-                <Button variant="primary" type="submit" className="mt-3">
-                    Login
-                </Button>
-            </Form>
+                        <Form.Group className="mb-4">
+                            <Form.Label>Password</Form.Label>
+                            <Form.Control
+                                type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                required
+                                disabled={isLoading}
+                            />
+                        </Form.Group>
+
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            className="w-100"
+                            disabled={isLoading}
+                        >
+                            {isLoading ? 'Logging in...' : 'Login'}
+                        </Button>
+                    </Form>
+                </Card.Body>
+            </Card>
         </Container>
     );
 }
