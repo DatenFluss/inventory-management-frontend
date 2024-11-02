@@ -1,6 +1,6 @@
 import React from 'react';
 import {BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import {AuthProvider, useAuth} from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -16,16 +16,15 @@ import RequireAuth from './components/RequireAuth';
 import NotFoundPage from './pages/NotFoundPage';
 
 const RoleBasedRoute = ({ children, allowedRoles }) => {
-    return (
-        <RequireAuth>
-            {({ userRole }) => {
-                if (!allowedRoles.includes(userRole)) {
-                    return <Navigate to="/unauthorized" />;
-                }
-                return children;
-            }}
-        </RequireAuth>
-    );
+    const { userRole } = useAuth();
+    console.log('RoleBasedRoute rendered - userRole:', userRole, 'allowedRoles:', allowedRoles);
+
+    if (!userRole || !allowedRoles.includes(userRole)) {
+        console.log('Unauthorized access attempted');
+        return <Navigate to="/unauthorized" replace />;
+    }
+
+    return children;
 };
 
 function App() {
@@ -42,61 +41,58 @@ function App() {
                             <Route path="/register" element={<RegisterPage />} />
                             <Route path="/register-enterprise" element={<RegisterEnterprisePage />} />
 
-                            {/* Protected Routes with Role-Based Access */}
-                            <Route element={<RequireAuth />}>
-                                {/* Employee Dashboard */}
-                                <Route
-                                    path="/employee-dashboard"
-                                    element={
-                                        <RoleBasedRoute allowedRoles={['EMPLOYEE']}>
-                                            <EmployeeDashboard />
-                                        </RoleBasedRoute>
-                                    }
-                                />
+                            {/* Protected Routes */}
+                            <Route path="/employee-dashboard"
+                                   element={
+                                       <RequireAuth>
+                                           <RoleBasedRoute allowedRoles={['EMPLOYEE']}>
+                                               <EmployeeDashboard />
+                                           </RoleBasedRoute>
+                                       </RequireAuth>
+                                   }
+                            />
 
-                                {/* Manager Dashboard */}
-                                <Route
-                                    path="/manager-dashboard"
-                                    element={
-                                        <RoleBasedRoute allowedRoles={['MANAGER']}>
-                                            <ManagerDashboard />
-                                        </RoleBasedRoute>
-                                    }
-                                />
+                            <Route path="/manager-dashboard"
+                                   element={
+                                       <RequireAuth>
+                                           <RoleBasedRoute allowedRoles={['MANAGER']}>
+                                               <ManagerDashboard />
+                                           </RoleBasedRoute>
+                                       </RequireAuth>
+                                   }
+                            />
 
-                                {/* Owner Dashboard */}
-                                <Route
-                                    path="/owner-dashboard"
-                                    element={
-                                        <RoleBasedRoute allowedRoles={['OWNER']}>
-                                            <OwnerDashboard />
-                                        </RoleBasedRoute>
-                                    }
-                                />
+                            <Route path="/owner-dashboard"
+                                   element={
+                                       <RequireAuth>
+                                           <RoleBasedRoute allowedRoles={['OWNER']}>
+                                               <OwnerDashboard />
+                                           </RoleBasedRoute>
+                                       </RequireAuth>
+                                   }
+                            />
 
-                                {/* Admin Dashboard */}
-                                <Route
-                                    path="/admin-dashboard"
-                                    element={
-                                        <RoleBasedRoute allowedRoles={['ADMIN']}>
-                                            <AdminDashboard />
-                                        </RoleBasedRoute>
-                                    }
-                                />
+                            <Route path="/admin-dashboard"
+                                   element={
+                                       <RequireAuth>
+                                           <RoleBasedRoute allowedRoles={['ADMIN']}>
+                                               <AdminDashboard />
+                                           </RoleBasedRoute>
+                                       </RequireAuth>
+                                   }
+                            />
 
-                                {/* Unaffiliated Dashboard */}
-                                <Route
-                                    path="/unaffiliated-dashboard"
-                                    element={
-                                        <RoleBasedRoute allowedRoles={['UNAFFILIATED']}>
-                                            <UnaffiliatedDashboard />
-                                        </RoleBasedRoute>
-                                    }
-                                />
-                            </Route>
+                            <Route path="/unaffiliated-dashboard"
+                                   element={
+                                       <RequireAuth>
+                                           <RoleBasedRoute allowedRoles={['UNAFFILIATED']}>
+                                               <UnaffiliatedDashboard />
+                                           </RoleBasedRoute>
+                                       </RequireAuth>
+                                   }
+                            />
 
                             {/* Error Routes */}
-                            <Route path="/unauthorized" element={<UnauthorizedPage />} />
                             <Route path="*" element={<NotFoundPage />} />
                         </Routes>
                     </div>
@@ -106,16 +102,5 @@ function App() {
         </AuthProvider>
     );
 }
-
-const UnauthorizedPage = () => {
-    return (
-        <div className="container mt-5">
-            <div className="alert alert-danger">
-                <h4>Unauthorized Access</h4>
-                <p>You don't have permission to access this page.</p>
-            </div>
-        </div>
-    );
-};
 
 export default App;

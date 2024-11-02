@@ -1,19 +1,17 @@
-import React from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-function RequireAuth() {
-    const { authToken } = useContext(AuthContext);
+const RequireAuth = ({ children }) => {
+    const { authToken } = useAuth();
     const location = useLocation();
 
     if (!authToken) {
-        // Redirect unauthenticated users to the login page.
+        console.log('RequireAuth - No token, redirecting to login');
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    // Render child routes for authenticated users.
-    return <Outlet />;
-}
+    console.log('RequireAuth - Authenticated, rendering children');
+    return children;
+};
 
 export default RequireAuth;
