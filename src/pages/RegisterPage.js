@@ -1,90 +1,118 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { Container, Form, Button, Alert, Card } from 'react-bootstrap';
 
-function RegisterPage() {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [email, setEmail] = useState('');
-    const [message, setMessage] = useState('');
+const RegisterPage = () => {
+    const [credentials, setCredentials] = useState({
+        username: '',
+        email: '',
+        password: ''
+    });
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setError('');
+        setSuccess('');
+        setIsLoading(true);
 
-        const registrationData = {
-            username: username,
-            password: password,
-            email: email,
-        };
+        try {
+            const response = await api.post('/api/users/register', credentials);
+            console.log('Registration successful:', response.data);
 
-        api.post('/api/users/register', registrationData)
-            .then(response => {
-                setMessage('Registration successful! Please log in.');
-                // Redirect to login page
-                // history.push('/login');
+            setSuccess('Registration successful! Redirecting to login...');
 
-                // Or clear the form fields
-                setUsername('');
-                setPassword('');
-                setEmail('');
-            })
-            .catch(error => {
-                if (error.response) {
-                    // Server responded with a status other than 2xx
-                    setMessage(`Registration failed: ${error.response.data.message || error.response.data}`);
-                } else if (error.request) {
-                    // Request was made but no response received
-                    setMessage('Registration failed: No response from server.');
-                } else {
-                    // Something else happened
-                    setMessage(`Registration failed: ${error.message}`);
-                }
-                console.error('Registration error:', error);
+            // Clear the form
+            setCredentials({
+                username: '',
+                email: '',
+                password: ''
             });
+
+            // Redirect to login page after 2 seconds
+            setTimeout(() => {
+                navigate('/login');
+            }, 2000);
+        } catch (error) {
+            console.error('Registration error:', error);
+            setError(
+                error.response?.data?.message ||
+                error.message ||
+                'Registration failed. Please try again.'
+            );
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setCredentials(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     return (
-        <div className="container mt-5">
-            <h2>User Registration</h2>
-            {message && <div className="alert alert-info">{message}</div>}
-            <form onSubmit={handleSubmit}>
-                {/* Username */}
-                <div className="form-group">
-                    <label>Username:</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        required
-                    />
-                </div>
-                {/* Email */}
-                <div className="form-group">
-                    <label>Email:</label>
-                    <input
-                        type="email"
-                        className="form-control"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                    />
-                </div>
-                {/* Password */}
-                <div className="form-group">
-                    <label>Password:</label>
-                    <input
-                        type="password"
-                        className="form-control"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                    />
-                </div>
-                {/* Submit Button */}
-                <button type="submit" className="btn btn-primary">Register</button>
-            </form>
-        </div>
+        <Container className="mt-5">
+            <Card className="mx-auto" style={{ maxWidth: '400px' }}>
+                <Card.Header as="h4" className="text-center">Register</Card.Header>
+                <Card.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    {success && <Alert variant="success">{success}</Alert>}
+
+                    <Form onSubmit={handleSubmit}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Username</Form.Label>
+                            <Form.Control
+                                type="text"
+                                name="username"
+                                value={credentials.username}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Email</Form.Label>
+                            <Form.Control
+                                type="email"
+                                name="email"
+                                value={credentials.email}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label>Password</Form.Label>
+                            <Form.Control
+                                type="password"
+                                name="password"
+                                value={credentials.password}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </Form.Group>
+
+                        <div className="d-grid">
+                            <Button
+                                variant="primary"
+                                type="submit"
+                                disabled={isLoading}
+                            >
+                                {isLoading ? 'Registering...' : 'Register'}
+                            </Button>
+                        </div>
+                    </Form>
+                </Card.Body>
+            </Card>
+        </Container>
     );
-}
+};
 
 export default RegisterPage;

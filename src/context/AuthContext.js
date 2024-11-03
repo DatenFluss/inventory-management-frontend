@@ -21,16 +21,19 @@ export const AuthProvider = ({ children }) => {
     });
 
     const login = useCallback(async (token) => {
+        console.log('AuthProvider - Login called with token');
 
         try {
             const decoded = jwtDecode(token);
+            console.log('AuthProvider - Decoded token:', decoded);
+
+            localStorage.setItem('token', token);
             setAuthToken(token);
             setUserRole(decoded.role);
 
-            return decoded.role;
+            return decoded;
         } catch (error) {
             console.error('Error in login:', error);
-            // Clean up any partial state
             localStorage.removeItem('token');
             setAuthToken(null);
             setUserRole(null);
@@ -39,9 +42,17 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const logout = useCallback(() => {
-        localStorage.removeItem('token');
-        setAuthToken(null);
-        setUserRole(null);
+        console.log('AuthProvider - Logout called');
+        try {
+            localStorage.removeItem('token');
+            setAuthToken(null);
+            setUserRole(null);
+        } catch (error) {
+            console.error('Error during logout:', error);
+            // Even if there's an error, we want to clear the state
+            setAuthToken(null);
+            setUserRole(null);
+        }
     }, []);
 
     // Verify token on mount and token change
@@ -49,7 +60,6 @@ export const AuthProvider = ({ children }) => {
         if (authToken) {
             try {
                 const decoded = jwtDecode(authToken);
-                // Check if token is expired
                 const currentTime = Date.now() / 1000;
                 if (decoded.exp && decoded.exp < currentTime) {
                     console.log('Token expired, logging out');
