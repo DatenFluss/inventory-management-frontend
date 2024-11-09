@@ -74,7 +74,7 @@ const RegisterEnterprisePage = () => {
         setSuccess('');
 
         try {
-            const response = await api.post('/api/enterprise/register', formData);
+            const response = await api.post('/api/enterprises/register', formData);
             setSuccess('Enterprise registration successful! Redirecting to login...');
 
             // Reset form

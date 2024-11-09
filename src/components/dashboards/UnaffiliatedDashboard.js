@@ -4,6 +4,7 @@ import { Container, Row, Col, Card, Button, Modal, Form, Alert, Badge } from 're
 import {
     Building2,
     Mail,
+    User,
     UserCircle,
     Calendar,
     BriefcaseIcon,
@@ -92,11 +93,17 @@ const UnaffiliatedDashboard = () => {
                             <div className="d-flex align-items-center mb-3">
                                 <UserCircle size={48} className="me-3" />
                                 <div>
-                                    <h2 className="mb-0">Welcome, {userInfo?.username}!</h2>
-                                    <p className="mb-0 opacity-75">
-                                        <Mail size={16} className="me-2" />
-                                        {userInfo?.email}
-                                    </p>
+                                    <h2 className="mb-0">Hello, {userInfo?.fullName}!</h2>
+                                    <div className="opacity-75 mt-1">
+                                        <p className="mb-1 d-flex align-items-center">
+                                            <User size={16} className="me-2" />
+                                            {userInfo?.username}
+                                        </p>
+                                        <p className="mb-0 d-flex align-items-center">
+                                            <Mail size={16} className="me-2" />
+                                            {userInfo?.email}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                             <Badge bg="light" text="dark" className="px-3 py-2">

@@ -9,7 +9,7 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         // Skip adding token for registration and login endpoints
-        const isAuthEndpoint = ['/api/users/register', '/api/users/login'].includes(config.url);
+        const isAuthEndpoint = ['/api/users/register', '/api/users/login', 'api/enterprises/register'].includes(config.url);
         if (!isAuthEndpoint) {
             const token = localStorage.getItem('token');
             if (token) {
