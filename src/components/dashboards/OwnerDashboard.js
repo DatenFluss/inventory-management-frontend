@@ -10,8 +10,8 @@ import {
     Package,
     User,
     LayoutGrid,
-    CheckCircle,
-    AlertCircle
+    Warehouse,
+    Box
 } from 'lucide-react';
 
 const OwnerDashboard = () => {
@@ -19,6 +19,7 @@ const OwnerDashboard = () => {
     const [enterpriseInfo, setEnterpriseInfo] = useState(null);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
+    const [warehouses, setWarehouses] = useState([]); // Added for warehouses
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -28,18 +29,21 @@ const OwnerDashboard = () => {
                     userResponse,
                     enterpriseResponse,
                     employeesResponse,
-                    //departmentsResponse
+                    departmentsResponse,
+                    warehousesResponse
                 ] = await Promise.all([
                     api.get('/api/users/me'),
                     api.get('/api/enterprises/current'),
                     api.get('/api/enterprises/employees'),
-                    //api.get('/api/enterprises/departments')
+                    api.get('/api/enterprises/departments'),
+                    api.get('/api/warehouses')
                 ]);
 
                 setUserInfo(userResponse.data);
                 setEnterpriseInfo(enterpriseResponse.data);
                 setEmployees(employeesResponse.data);
-                //setDepartments(departmentsResponse.data);
+                setDepartments(departmentsResponse.data);
+                setWarehouses(warehousesResponse.data);
             } catch (error) {
                 console.error('Error fetching data:', error);
             } finally {
@@ -102,7 +106,7 @@ const OwnerDashboard = () => {
 
             {/* Enterprise Overview Cards */}
             <Row className="mb-4">
-                <Col md={4}>
+                <Col md={3}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
                             <div className="d-flex align-items-center">
@@ -115,7 +119,7 @@ const OwnerDashboard = () => {
                         </Card.Body>
                     </Card>
                 </Col>
-                <Col md={4}>
+                <Col md={3}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
                             <div className="d-flex align-items-center">
@@ -128,11 +132,24 @@ const OwnerDashboard = () => {
                         </Card.Body>
                     </Card>
                 </Col>
-                <Col md={4}>
+                <Col md={3}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
                             <div className="d-flex align-items-center">
-                                <Package size={24} className="text-primary me-3" />
+                                <Warehouse size={24} className="text-primary me-3" />
+                                <div>
+                                    <h6 className="mb-1">Warehouses</h6>
+                                    <h3 className="mb-0">{warehouses.length}</h3>
+                                </div>
+                            </div>
+                        </Card.Body>
+                    </Card>
+                </Col>
+                <Col md={3}>
+                    <Card className="border-0 shadow-sm">
+                        <Card.Body>
+                            <div className="d-flex align-items-center">
+                                <Box size={24} className="text-primary me-3" />
                                 <div>
                                     <h6 className="mb-1">Total Items</h6>
                                     <h3 className="mb-0">{departments.reduce((acc, dept) => acc + dept.itemCount, 0)}</h3>
@@ -142,6 +159,40 @@ const OwnerDashboard = () => {
                     </Card>
                 </Col>
             </Row>
+
+            {/* Warehouses Section */}
+            <Card className="border-0 shadow-sm mb-4">
+                <Card.Header className="bg-white border-bottom">
+                    <div className="d-flex align-items-center">
+                        <Warehouse size={24} className="text-primary me-2" />
+                        <h4 className="mb-0">Warehouses</h4>
+                    </div>
+                </Card.Header>
+                <Card.Body>
+                    <Row>
+                        {warehouses.map(warehouse => (
+                            <Col md={4} key={warehouse.id} className="mb-3">
+                                <Card className="h-100 border">
+                                    <Card.Body>
+                                        <h5 className="d-flex align-items-center">
+                                            <Warehouse size={20} className="text-primary me-2" />
+                                            {warehouse.name}
+                                        </h5>
+                                        <div className="text-muted mb-3">
+                                            <p className="mb-1 d-flex align-items-center">
+                                                <User size={16} className="me-2" />
+                                                Manager: {warehouse.managerName || 'Not Assigned'}
+                                            </p>
+                                            <p className="mb-1">Location: {warehouse.location}</p>
+                                            <p className="mb-0">Items: {warehouse.itemCount}</p>
+                                        </div>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
+                </Card.Body>
+            </Card>
 
             {/* Departments Section */}
             <Card className="border-0 shadow-sm mb-4">
