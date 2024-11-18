@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Container, Row, Col, Card, Table, Badge, ProgressBar } from 'react-bootstrap';
+import { Container, Row, Col, Card, Table, Badge, ProgressBar, Modal, Form, Button, Alert } from 'react-bootstrap';
 import {
     UserCircle,
     Building2,
@@ -19,8 +19,79 @@ const OwnerDashboard = () => {
     const [enterpriseInfo, setEnterpriseInfo] = useState(null);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [warehouses, setWarehouses] = useState([]); // Added for warehouses
+    const [warehouses, setWarehouses] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+    const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+
+    // Form states
+    const [departmentForm, setDepartmentForm] = useState({
+        name: '',
+        description: ''
+    });
+
+    const [warehouseForm, setWarehouseForm] = useState({
+        name: '',
+        description: '',
+        location: ''
+    });
+
+    const [inviteForm, setInviteForm] = useState({
+        email: '',
+        role: 'EMPLOYEE'
+    });
+
+    // Error states
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // Handle form submissions
+    const handleCreateDepartment = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            await api.post('/api/enterprises/departments', departmentForm);
+            setShowDepartmentModal(false);
+            setDepartmentForm({ name: '', description: '' });
+            // Refresh departments list
+            const response = await api.get('/api/enterprises/departments');
+            setDepartments(response.data);
+            setSuccess('Department created successfully');
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to create department');
+        }
+    };
+
+    const handleCreateWarehouse = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            await api.post('/api/warehouses', warehouseForm);
+            setShowWarehouseModal(false);
+            setWarehouseForm({ name: '', description: '', location: '' });
+            // Refresh warehouses list
+            const response = await api.get('/api/warehouses');
+            setWarehouses(response.data);
+            setSuccess('Warehouse created successfully');
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to create warehouse');
+        }
+    };
+
+    const handleSendInvite = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            await api.post('/api/enterprises/invites', inviteForm);
+            setShowInviteModal(false);
+            setInviteForm({ email: '', role: 'EMPLOYEE' });
+            setSuccess('Invitation sent successfully');
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to send invite');
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -75,6 +146,11 @@ const OwnerDashboard = () => {
 
     return (
         <Container className="py-4">
+            {success && (
+                <Alert variant="success" dismissible onClose={() => setSuccess('')} className="mb-4">
+                    {success}
+                </Alert>
+            )}
             {/* Welcome Banner */}
             <Card className="mb-4 bg-primary text-white border-0 shadow">
                 <Card.Body className="py-4">
@@ -163,9 +239,18 @@ const OwnerDashboard = () => {
             {/* Warehouses Section */}
             <Card className="border-0 shadow-sm mb-4">
                 <Card.Header className="bg-white border-bottom">
-                    <div className="d-flex align-items-center">
-                        <Warehouse size={24} className="text-primary me-2" />
-                        <h4 className="mb-0">Warehouses</h4>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center">
+                            <Warehouse size={24} className="text-primary me-2" />
+                            <h4 className="mb-0">Warehouses</h4>
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setShowWarehouseModal(true)}
+                        >
+                            Add Warehouse
+                        </Button>
                     </div>
                 </Card.Header>
                 <Card.Body>
@@ -197,9 +282,18 @@ const OwnerDashboard = () => {
             {/* Departments Section */}
             <Card className="border-0 shadow-sm mb-4">
                 <Card.Header className="bg-white border-bottom">
-                    <div className="d-flex align-items-center">
-                        <Briefcase size={24} className="text-primary me-2" />
-                        <h4 className="mb-0">Departments</h4>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center">
+                            <Briefcase size={24} className="text-primary me-2" />
+                            <h4 className="mb-0">Departments</h4>
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setShowDepartmentModal(true)}
+                        >
+                            Add Department
+                        </Button>
                     </div>
                 </Card.Header>
                 <Card.Body>
@@ -235,9 +329,18 @@ const OwnerDashboard = () => {
             {/* Employees Table */}
             <Card className="border-0 shadow-sm">
                 <Card.Header className="bg-white border-bottom">
-                    <div className="d-flex align-items-center">
-                        <Users size={24} className="text-primary me-2" />
-                        <h4 className="mb-0">Employees</h4>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center">
+                            <Users size={24} className="text-primary me-2" />
+                            <h4 className="mb-0">Employees</h4>
+                        </div>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => setShowInviteModal(true)}
+                        >
+                            Invite Employee
+                        </Button>
                     </div>
                 </Card.Header>
                 <Card.Body>
@@ -275,6 +378,159 @@ const OwnerDashboard = () => {
                     </div>
                 </Card.Body>
             </Card>
+
+            {/* Modals */}
+            {/* Department Modal */}
+            <Modal show={showDepartmentModal} onHide={() => setShowDepartmentModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Create New Department</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleCreateDepartment}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Department Name</Form.Label>
+                            <Form.Control
+                                type="text"
+                                placeholder="Enter department name"
+                                value={departmentForm.name}
+                                onChange={(e) => setDepartmentForm({
+                                    ...departmentForm,
+                                    name: e.target.value
+                                })}
+                                required
+                            />
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Description</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                placeholder="Enter department description"
+                                value={departmentForm.description}
+                                onChange={(e) => setDepartmentForm({
+                                    ...departmentForm,
+                                    description: e.target.value
+                                })}
+                            />
+                        </Form.Group>
+                        <div className="d-flex justify-content-end gap-2">
+                            <Button variant="secondary" onClick={() => setShowDepartmentModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Create Department
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
+            {/* Warehouse Modal */}
+            <Modal show={showWarehouseModal} onHide={() => setShowWarehouseModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Create New Warehouse</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleCreateWarehouse}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Warehouse Name</Form.Label>
+                            <Form.Control
+                                type="text"
+                                placeholder="Enter warehouse name"
+                                value={warehouseForm.name}
+                                onChange={(e) => setWarehouseForm({
+                                    ...warehouseForm,
+                                    name: e.target.value
+                                })}
+                                required
+                            />
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Location</Form.Label>
+                            <Form.Control
+                                type="text"
+                                placeholder="Enter warehouse location"
+                                value={warehouseForm.location}
+                                onChange={(e) => setWarehouseForm({
+                                    ...warehouseForm,
+                                    location: e.target.value
+                                })}
+                                required
+                            />
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Description</Form.Label>
+                            <Form.Control
+                                as="textarea"
+                                rows={3}
+                                placeholder="Enter warehouse description"
+                                value={warehouseForm.description}
+                                onChange={(e) => setWarehouseForm({
+                                    ...warehouseForm,
+                                    description: e.target.value
+                                })}
+                            />
+                        </Form.Group>
+                        <div className="d-flex justify-content-end gap-2">
+                            <Button variant="secondary" onClick={() => setShowWarehouseModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Create Warehouse
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
+            {/* Invite Modal */}
+            <Modal show={showInviteModal} onHide={() => setShowInviteModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Invite Employee</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleSendInvite}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Email</Form.Label>
+                            <Form.Control
+                                type="email"
+                                placeholder="Enter employee email"
+                                value={inviteForm.email}
+                                onChange={(e) => setInviteForm({
+                                    ...inviteForm,
+                                    email: e.target.value
+                                })}
+                                required
+                            />
+                        </Form.Group>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Role</Form.Label>
+                            <Form.Select
+                                value={inviteForm.role}
+                                onChange={(e) => setInviteForm({
+                                    ...inviteForm,
+                                    role: e.target.value
+                                })}
+                            >
+                                <option value="EMPLOYEE">Employee</option>
+                                <option value="MANAGER">Manager</option>
+                                <option value="WAREHOUSE_OPERATOR">Warehouse Operator</option>
+                            </Form.Select>
+                        </Form.Group>
+                        <div className="d-flex justify-content-end gap-2">
+                            <Button variant="secondary" onClick={() => setShowInviteModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Send Invite
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
         </Container>
     );
 };
