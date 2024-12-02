@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
-import { Container, Row, Col, Card, Button, Modal, Form, Alert, Badge } from 'react-bootstrap';
+import {Container, Row, Col, Card, Button, Badge, Modal, Alert, Form} from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import api, { updateToken } from '../../services/api';
 import {
     Building2,
-    Mail,
-    User,
     UserCircle,
+    User,
+    Mail,
     Calendar,
     BriefcaseIcon,
-    PlusCircle,
-    Bell
+    Bell, PlusCircle
 } from 'lucide-react';
 
 const UnaffiliatedDashboard = () => {
@@ -23,6 +24,8 @@ const UnaffiliatedDashboard = () => {
         description: '',
         industry: ''
     });
+    const navigate = useNavigate();
+    const { login } = useAuth();
 
     useEffect(() => {
         Promise.all([fetchUserInfo(), fetchInvites()])
@@ -63,10 +66,35 @@ const UnaffiliatedDashboard = () => {
 
     const handleInviteResponse = async (inviteId, accept) => {
         try {
-            await api.post(`/api/enterprises/invites/${inviteId}/${accept ? 'accept' : 'decline'}`);
-            await fetchInvites();
-            if (accept) {
-                await fetchUserInfo();
+            const response = await api.post(`/api/enterprises/invites/${inviteId}/${accept ? 'accept' : 'decline'}`);
+            
+            if (accept && response.data.token) {
+                // Update API headers first
+                updateToken(response.data.token);
+                
+                // Then login with the new token
+                await login(response.data.token);
+                
+                // Redirect based on role
+                const role = response.data.role;
+                let targetPath;
+                switch (role) {
+                    case 'ROLE_EMPLOYEE':
+                        targetPath = '/employee-dashboard';
+                        break;
+                    case 'ROLE_MANAGER':
+                        targetPath = '/manager-dashboard';
+                        break;
+                    case 'ROLE_WAREHOUSE_OPERATOR':
+                        targetPath = '/operator-dashboard';
+                        break;
+                    default:
+                        targetPath = '/';
+                }
+                
+                navigate(targetPath);
+            } else {
+                await fetchInvites();
             }
         } catch (error) {
             console.error('Error handling invite:', error);

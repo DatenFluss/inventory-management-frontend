@@ -25,17 +25,18 @@ const EmployeeDashboard = () => {
                     api.get('/api/users/me'),
                     api.get('/api/enterprises/current'),
                     api.get('/api/users/manager'),
-                    api.get('/api/items/my-items'),
-                    api.get('/api/items/my-requests'),
+                    api.get('/api/inventory/items'),
+                    api.get('/api/requests'),
                 ]);
 
                 setUserInfo(userResponse.data);
                 setEnterpriseInfo(enterpriseResponse.data);
                 setManagerInfo(managerResponse.data);
-                setItems(itemsResponse.data);
-                setRequests(requestsResponse.data);
+                setItems(itemsResponse.data.items || []);
+                setRequests(requestsResponse.data.requests || []);
             } catch (err) {
-                setError(err.message || 'Failed to fetch data');
+                console.error('Error fetching data:', err);
+                setError(err.response?.data?.message || err.message || 'Failed to fetch data');
             } finally {
                 setIsLoading(false);
             }

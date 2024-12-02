@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { Container, Row, Col, Card, Table, Badge, ProgressBar, Modal, Form, Button, Alert } from 'react-bootstrap';
 import {
@@ -11,11 +12,12 @@ import {
     User,
     LayoutGrid,
     Warehouse,
-    Box
+    Box,
+    UserPlus
 } from 'lucide-react';
 
 const OwnerDashboard = () => {
-    const [userInfo, setUserInfo] = useState(null);
+    const { userInfo } = useAuth();
     const [enterpriseInfo, setEnterpriseInfo] = useState(null);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -25,6 +27,10 @@ const OwnerDashboard = () => {
     const [showDepartmentModal, setShowDepartmentModal] = useState(false);
     const [showWarehouseModal, setShowWarehouseModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
+    const [showAssignManagerModal, setShowAssignManagerModal] = useState(false);
+    const [showAssignOperatorModal, setShowAssignOperatorModal] = useState(false);
+    const [selectedDepartment, setSelectedDepartment] = useState(null);
+    const [selectedWarehouse, setSelectedWarehouse] = useState(null);
 
     // Form states
     const [departmentForm, setDepartmentForm] = useState({
@@ -40,7 +46,15 @@ const OwnerDashboard = () => {
 
     const [inviteForm, setInviteForm] = useState({
         email: '',
-        role: 'EMPLOYEE'
+        role: 'ROLE_EMPLOYEE'
+    });
+
+    const [managerForm, setManagerForm] = useState({
+        userId: ''
+    });
+
+    const [operatorForm, setOperatorForm] = useState({
+        userId: ''
     });
 
     // Error states
@@ -55,12 +69,28 @@ const OwnerDashboard = () => {
             await api.post('/api/enterprises/departments', departmentForm);
             setShowDepartmentModal(false);
             setDepartmentForm({ name: '', description: '' });
-            // Refresh departments list
-            const response = await api.get('/api/enterprises/departments');
-            setDepartments(response.data);
             setSuccess('Department created successfully');
+            // Refresh data after successful department creation
+            await fetchData();
         } catch (error) {
             setError(error.response?.data?.message || 'Failed to create department');
+        }
+    };
+
+    const handleAssignManager = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            await api.post(`/api/enterprises/departments/${selectedDepartment.id}/manager`, {
+                userId: managerForm.userId
+            });
+            setShowAssignManagerModal(false);
+            setManagerForm({ userId: '' });
+            setSuccess('Manager assigned successfully');
+            // Refresh data after successful manager assignment
+            await fetchData();
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to assign manager');
         }
     };
 
@@ -71,10 +101,9 @@ const OwnerDashboard = () => {
             await api.post('/api/warehouses', warehouseForm);
             setShowWarehouseModal(false);
             setWarehouseForm({ name: '', description: '', location: '' });
-            // Refresh warehouses list
-            const response = await api.get('/api/warehouses');
-            setWarehouses(response.data);
             setSuccess('Warehouse created successfully');
+            // Refresh data after successful warehouse creation
+            await fetchData();
         } catch (error) {
             setError(error.response?.data?.message || 'Failed to create warehouse');
         }
@@ -86,42 +115,58 @@ const OwnerDashboard = () => {
         try {
             await api.post('/api/enterprises/invites', inviteForm);
             setShowInviteModal(false);
-            setInviteForm({ email: '', role: 'EMPLOYEE' });
+            setInviteForm({ email: '', role: 'ROLE_EMPLOYEE' });
             setSuccess('Invitation sent successfully');
+            // Refresh data after successful invite
+            await fetchData();
         } catch (error) {
             setError(error.response?.data?.message || 'Failed to send invite');
         }
     };
 
+    const handleAssignOperator = async (e) => {
+        e.preventDefault();
+        setError('');
+        try {
+            await api.post(`/api/warehouses/${selectedWarehouse.id}/operator`, {
+                userId: operatorForm.userId
+            });
+            setShowAssignOperatorModal(false);
+            setOperatorForm({ userId: '' });
+            setSuccess('Operator assigned successfully');
+            // Refresh data after successful operator assignment
+            await fetchData();
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to assign operator');
+        }
+    };
+
+    const fetchData = async () => {
+        try {
+            const [
+                enterpriseResponse,
+                employeesResponse,
+                departmentsResponse,
+                warehousesResponse
+            ] = await Promise.all([
+                api.get('/api/enterprises/current'),
+                api.get('/api/enterprises/employees'),
+                api.get('/api/enterprises/departments'),
+                api.get('/api/warehouses')
+            ]);
+
+            setEnterpriseInfo(enterpriseResponse.data);
+            setEmployees(employeesResponse.data);
+            setDepartments(departmentsResponse.data);
+            setWarehouses(warehousesResponse.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [
-                    userResponse,
-                    enterpriseResponse,
-                    employeesResponse,
-                    departmentsResponse,
-                    warehousesResponse
-                ] = await Promise.all([
-                    api.get('/api/users/me'),
-                    api.get('/api/enterprises/current'),
-                    api.get('/api/enterprises/employees'),
-                    api.get('/api/enterprises/departments'),
-                    api.get('/api/warehouses')
-                ]);
-
-                setUserInfo(userResponse.data);
-                setEnterpriseInfo(enterpriseResponse.data);
-                setEmployees(employeesResponse.data);
-                setDepartments(departmentsResponse.data);
-                setWarehouses(warehousesResponse.data);
-            } catch (error) {
-                console.error('Error fetching data:', error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchData();
     }, []);
 
@@ -159,7 +204,7 @@ const OwnerDashboard = () => {
                             <div className="d-flex align-items-center mb-3">
                                 <UserCircle size={48} className="me-3" />
                                 <div>
-                                    <h2 className="mb-0">Hello, {userInfo?.fullName}!</h2>
+                                    <h2 className="mb-0">Hello, {userInfo?.fullName || 'Owner'}!</h2>
                                     <div className="opacity-75 mt-1">
                                         <p className="mb-1 d-flex align-items-center">
                                             <User size={16} className="me-2" />
@@ -268,8 +313,24 @@ const OwnerDashboard = () => {
                                                 <User size={16} className="me-2" />
                                                 Manager: {warehouse.managerName || 'Not Assigned'}
                                             </p>
+                                            <p className="mb-1 d-flex align-items-center">
+                                                <User size={16} className="me-2" />
+                                                Operator: {warehouse.operatorName || 'Not Assigned'}
+                                            </p>
                                             <p className="mb-1">Location: {warehouse.location}</p>
                                             <p className="mb-0">Items: {warehouse.itemCount}</p>
+                                        </div>
+                                        <div className="mt-3">
+                                            <Button
+                                                variant="outline-primary"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setSelectedWarehouse(warehouse);
+                                                    setShowAssignOperatorModal(true);
+                                                }}
+                                            >
+                                                Assign Operator
+                                            </Button>
                                         </div>
                                     </Card.Body>
                                 </Card>
@@ -309,15 +370,28 @@ const OwnerDashboard = () => {
                                         <div className="text-muted mb-3">
                                             <p className="mb-1 d-flex align-items-center">
                                                 <User size={16} className="me-2" />
-                                                Manager: {dept.managerName}
+                                                Manager: {dept.managerName || 'Not assigned'}
                                             </p>
                                             <p className="mb-1">Employees: {dept.employeeCount}</p>
                                             <p className="mb-0">Items: {dept.itemCount}</p>
                                         </div>
                                         <ProgressBar
-                                            now={(dept.employeeCount / enterpriseInfo?.totalEmployees) * 100}
+                                            now={(dept.employeeCount / (enterpriseInfo?.totalEmployees || 1)) * 100}
                                             variant="primary"
+                                            className="mb-3"
                                         />
+                                        <Button
+                                            variant="outline-primary"
+                                            size="sm"
+                                            className="w-100"
+                                            onClick={() => {
+                                                setSelectedDepartment(dept);
+                                                setShowAssignManagerModal(true);
+                                            }}
+                                        >
+                                            <UserPlus size={16} className="me-2" />
+                                            {dept.managerName ? 'Change Manager' : 'Assign Manager'}
+                                        </Button>
                                     </Card.Body>
                                 </Card>
                             </Col>
@@ -515,9 +589,9 @@ const OwnerDashboard = () => {
                                     role: e.target.value
                                 })}
                             >
-                                <option value="EMPLOYEE">Employee</option>
-                                <option value="MANAGER">Manager</option>
-                                <option value="WAREHOUSE_OPERATOR">Warehouse Operator</option>
+                                <option value="ROLE_EMPLOYEE">Employee</option>
+                                <option value="ROLE_MANAGER">Manager</option>
+                                <option value="ROLE_WAREHOUSE_OPERATOR">Warehouse Operator</option>
                             </Form.Select>
                         </Form.Group>
                         <div className="d-flex justify-content-end gap-2">
@@ -526,6 +600,85 @@ const OwnerDashboard = () => {
                             </Button>
                             <Button variant="primary" type="submit">
                                 Send Invite
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
+            {/* Assign Manager Modal */}
+            <Modal show={showAssignManagerModal} onHide={() => setShowAssignManagerModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Assign Department Manager</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleAssignManager}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Select Manager</Form.Label>
+                            <Form.Select
+                                value={managerForm.userId}
+                                onChange={(e) => setManagerForm({
+                                    ...managerForm,
+                                    userId: e.target.value
+                                })}
+                                required
+                            >
+                                <option value="">Choose a manager...</option>
+                                {employees.map(employee => (
+                                    <option key={employee.id} value={employee.id}>
+                                        {employee.fullName || employee.username} ({employee.email})
+                                    </option>
+                                ))}
+                            </Form.Select>
+                        </Form.Group>
+                        <div className="d-flex justify-content-end gap-2">
+                            <Button variant="secondary" onClick={() => setShowAssignManagerModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Assign Manager
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
+            {/* Assign Operator Modal */}
+            <Modal show={showAssignOperatorModal} onHide={() => setShowAssignOperatorModal(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Assign Warehouse Operator</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleAssignOperator}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Select Operator</Form.Label>
+                            <Form.Select
+                                value={operatorForm.userId}
+                                onChange={(e) => setOperatorForm({
+                                    ...operatorForm,
+                                    userId: e.target.value
+                                })}
+                                required
+                            >
+                                <option value="">Select an employee</option>
+                                {employees
+                                    .filter(emp => emp.roleName !== 'ROLE_WAREHOUSE_OPERATOR')
+                                    .map(emp => (
+                                        <option key={emp.id} value={emp.id}>
+                                            {emp.fullName}
+                                        </option>
+                                    ))
+                                }
+                            </Form.Select>
+                        </Form.Group>
+                        <div className="d-flex justify-content-end gap-2">
+                            <Button variant="secondary" onClick={() => setShowAssignOperatorModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Assign Operator
                             </Button>
                         </div>
                     </Form>

@@ -44,21 +44,24 @@ const LoginPage = () => {
 
     const getDashboardRoute = (role) => {
         console.log('Determining dashboard route for role:', role);
-
+        
         switch (role) {
-            case 'EMPLOYEE':
+            case 'ROLE_EMPLOYEE':
                 return '/employee-dashboard';
-            case 'MANAGER':
+            case 'ROLE_MANAGER':
                 return '/manager-dashboard';
-            case 'OWNER':
+            case 'ROLE_OWNER':
+            case 'ROLE_ENTERPRISE_OWNER':
                 return '/owner-dashboard';
-            case 'ADMIN':
+            case 'ROLE_ADMIN':
                 return '/admin-dashboard';
-            case 'UNAFFILIATED':
+            case 'ROLE_WAREHOUSE_OPERATOR':
+                return '/operator-dashboard';
+            case 'ROLE_UNAFFILIATED':
                 return '/unaffiliated-dashboard';
             default:
                 console.warn('Unknown role:', role);
-                return '/unaffiliated-dashboard';
+                return '/unauthorized';
         }
     };
 
@@ -68,11 +71,17 @@ const LoginPage = () => {
         setIsLoading(true);
 
         try {
+            console.log('Attempting login with credentials:', { username: credentials.username });
             const response = await api.post('/api/users/login', credentials);
+            console.log('Login response:', response.data);
 
             if (response.data.token) {
+                console.log('Token received, attempting to decode and login');
                 const decoded = await login(response.data.token);
+                console.log('Decoded token data:', decoded);
+                
                 const dashboardRoute = getDashboardRoute(decoded.role);
+                console.log('Navigating to dashboard:', dashboardRoute);
                 navigate(dashboardRoute);
             } else {
                 setError('Invalid response from server');
@@ -80,6 +89,7 @@ const LoginPage = () => {
             }
         } catch (error) {
             console.error('Login error:', error);
+            console.error('Error response:', error.response?.data);
             setError(
                 error.response?.data?.message ||
                 error.message ||

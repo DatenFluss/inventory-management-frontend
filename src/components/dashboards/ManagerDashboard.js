@@ -18,13 +18,13 @@ const ManagerDashboard = () => {
                 ] = await Promise.all([
                     api.get('/api/users/me'),
                     api.get('/api/enterprises/current'),
-                    api.get('/api/items/pending-requests'),
+                    api.get('/api/requests?status=PENDING'),
                     api.get('/api/users/subordinates')
                 ]);
 
                 setUserInfo(userResponse.data);
                 setEnterpriseInfo(enterpriseResponse.data);
-                setPendingRequests(requestsResponse.data);
+                setPendingRequests(requestsResponse.data.requests || []);
                 setSubordinates(subordinatesResponse.data);
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -36,10 +36,14 @@ const ManagerDashboard = () => {
 
     const handleRequestAction = async (requestId, action) => {
         try {
-            await api.post(`/api/items/requests/${requestId}/${action}`);
+            await api.post(`/api/requests/${requestId}/process`, null, {
+                params: {
+                    approved: action === 'approve',
+                }
+            });
             // Refresh pending requests
-            const response = await api.get('/api/items/pending-requests');
-            setPendingRequests(response.data);
+            const response = await api.get('/api/requests?status=PENDING');
+            setPendingRequests(response.data.requests || []);
         } catch (error) {
             console.error(`Error ${action} request:`, error);
         }
@@ -67,7 +71,14 @@ const ManagerDashboard = () => {
                 {enterpriseInfo && (
                     <div className="card p-3">
                         <p>Name: {enterpriseInfo.name}</p>
-                        <p>Department: {enterpriseInfo.department}</p>
+                        <p>Department: {enterpriseInfo.userDepartment ? enterpriseInfo.userDepartment.name : 'Not assigned'}</p>
+                        {enterpriseInfo.userDepartment && (
+                            <>
+                                <p>Department Role: Department Manager</p>
+                                <p>Department Size: {enterpriseInfo.userDepartment.employeeCount} employees</p>
+                                <p>Items in Department: {enterpriseInfo.userDepartment.itemCount} items</p>
+                            </>
+                        )}
                     </div>
                 )}
             </section>
