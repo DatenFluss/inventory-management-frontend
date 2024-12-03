@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Container, Row, Col, Card, Table, Badge, Button, Alert } from 'react-bootstrap';
-import { UserCircle, Building2, Package, Mail, Clock, CheckCircle, XCircle, Inbox, ShoppingCart } from 'lucide-react';
+import { Container, Row, Col, Card, Table, Badge, Button, Alert, Modal, Form } from 'react-bootstrap';
+import { UserCircle, Building2, Package, Mail, Clock, CheckCircle, XCircle, Inbox, ShoppingCart, ArrowLeft } from 'lucide-react';
 
 const EmployeeDashboard = () => {
     const [userInfo, setUserInfo] = useState(null);
@@ -14,6 +14,11 @@ const EmployeeDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [showRequestModal, setShowRequestModal] = useState(false);
+    const [showReturnModal, setShowReturnModal] = useState(false);
+    const [departmentItems, setDepartmentItems] = useState([]);
+    const [selectedItems, setSelectedItems] = useState([]);
+    const [itemsToReturn, setItemsToReturn] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -29,12 +34,12 @@ const EmployeeDashboard = () => {
             // Then fetch other data
             const [itemsResponse, requestsResponse, invitesResponse] = await Promise.all([
                 api.get('/api/items/in-use'),
-                api.get('/api/requests'),
+                api.get('/api/employee-requests/my'),
                 api.get('/api/department-invites/my')
             ]);
 
             setItemsInUse(itemsResponse.data.items || []);
-            setItemRequests(requestsResponse.data.requests || []);
+            setItemRequests(requestsResponse.data || []);
             setPendingInvites(invitesResponse.data || []);
 
             // If user has an enterpriseId, fetch enterprise info directly
@@ -65,6 +70,16 @@ const EmployeeDashboard = () => {
                 setManagerInfo(null);
                 setTeamMembers([]);
             }
+
+            // If user has a department, fetch department items
+            if (userResponse.data?.departmentId) {
+                try {
+                    const departmentItemsResponse = await api.get(`/api/inventory/department/${userResponse.data.departmentId}/items`);
+                    setDepartmentItems(departmentItemsResponse.data.items || []);
+                } catch (error) {
+                    console.error('Error fetching department items:', error);
+                }
+            }
         } catch (error) {
             console.error('Error fetching data:', error);
             setError('Failed to load dashboard data');
@@ -90,6 +105,60 @@ const EmployeeDashboard = () => {
         } catch (error) {
             console.error(`Error ${accept ? 'accepting' : 'rejecting'} invite:`, error);
             setError(`Failed to ${accept ? 'accept' : 'reject'} the invite. Please try again.`);
+        }
+    };
+
+    const handleRequestItems = async () => {
+        try {
+            const validItems = selectedItems.filter(item => item.requestQuantity && item.requestQuantity > 0);
+            
+            if (validItems.length === 0) {
+                setError('Please select at least one item with a valid quantity');
+                return;
+            }
+
+            const requestData = {
+                departmentId: userInfo.departmentId,
+                requestItems: validItems.map(item => ({
+                    itemId: item.id,
+                    quantity: parseInt(item.requestQuantity)
+                }))
+            };
+
+            await api.post('/api/employee-requests', requestData);
+            setSuccess('Items requested successfully');
+            setShowRequestModal(false);
+            setSelectedItems([]);
+            await fetchData();
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to request items');
+            console.error('Error requesting items:', error);
+        }
+    };
+
+    const handleReturnItems = async () => {
+        try {
+            const validItems = itemsToReturn.filter(item => item.returnQuantity && item.returnQuantity > 0);
+            
+            if (validItems.length === 0) {
+                setError('Please select at least one item with a valid quantity');
+                return;
+            }
+
+            const returnData = validItems.map(item => ({
+                itemId: item.id,
+                quantity: parseInt(item.returnQuantity),
+                departmentId: userInfo.departmentId
+            }));
+
+            await api.post('/api/inventory/employee/return-items', returnData);
+            setSuccess('Items returned successfully');
+            setShowReturnModal(false);
+            setItemsToReturn([]);
+            await fetchData();
+        } catch (error) {
+            setError(error.response?.data?.message || 'Failed to return items');
+            console.error('Error returning items:', error);
         }
     };
 
@@ -318,9 +387,21 @@ const EmployeeDashboard = () => {
             {/* Items in Use Section */}
             <Card className="border-0 shadow-sm mb-4">
                 <Card.Header className="bg-white border-bottom">
-                    <div className="d-flex align-items-center">
-                        <Package size={24} className="text-primary me-2" />
-                        <h4 className="mb-0">Items in Use</h4>
+                    <div className="d-flex align-items-center justify-content-between">
+                        <div className="d-flex align-items-center">
+                            <Package size={24} className="text-primary me-2" />
+                            <h4 className="mb-0">Items in Use</h4>
+                        </div>
+                        {itemsInUse.length > 0 && (
+                            <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => setShowReturnModal(true)}
+                            >
+                                <ArrowLeft size={16} className="me-2" />
+                                Return Items
+                            </Button>
+                        )}
                     </div>
                 </Card.Header>
                 <Card.Body>
@@ -348,8 +429,8 @@ const EmployeeDashboard = () => {
                                         <tr key={item.id}>
                                             <td>{item.name}</td>
                                             <td>{item.warehouseName}</td>
-                                            <td>{new Date(item.checkedOutAt).toLocaleDateString()}</td>
-                                            <td>{new Date(item.dueDate).toLocaleDateString()}</td>
+                                            <td>{item.checkedOutAt ? new Date(item.checkedOutAt).toLocaleDateString() : ''}</td>
+                                            <td>{item.dueDate ? new Date(item.dueDate).toLocaleDateString() : ''}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -358,6 +439,179 @@ const EmployeeDashboard = () => {
                     )}
                 </Card.Body>
             </Card>
+
+            {/* Department Items Section */}
+            {userInfo?.departmentId && (
+                <Card className="border-0 shadow-sm mb-4">
+                    <Card.Header className="bg-white border-bottom">
+                        <div className="d-flex align-items-center justify-content-between">
+                            <div className="d-flex align-items-center">
+                                <Package size={24} className="text-primary me-2" />
+                                <h4 className="mb-0">Department Items</h4>
+                            </div>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => setShowRequestModal(true)}
+                            >
+                                Request Items
+                            </Button>
+                        </div>
+                    </Card.Header>
+                    <Card.Body>
+                        {departmentItems.filter(item => !item.userId).length === 0 ? (
+                            <div className="text-center py-5">
+                                <Package size={48} className="text-muted mb-3" />
+                                <h5 className="text-muted">No Items Available</h5>
+                                <p className="text-muted mb-0">
+                                    There are no items available in your department.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="table-responsive">
+                                <Table hover className="align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Item Name</th>
+                                            <th>Description</th>
+                                            <th>Available Quantity</th>
+                                            <th>Warehouse</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {departmentItems.filter(item => !item.userId).map(item => (
+                                            <tr key={item.id}>
+                                                <td>{item.name}</td>
+                                                <td>{item.description}</td>
+                                                <td>{item.quantity}</td>
+                                                <td>{item.warehouseName}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </Table>
+                            </div>
+                        )}
+                    </Card.Body>
+                </Card>
+            )}
+
+            {/* Request Items Modal */}
+            <Modal show={showRequestModal} onHide={() => setShowRequestModal(false)} size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Request Items</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div className="table-responsive">
+                        <Table hover>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Available</th>
+                                    <th>Request Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {departmentItems.map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>
+                                            <Form.Control
+                                                type="number"
+                                                min="1"
+                                                max={item.quantity}
+                                                onChange={(e) => {
+                                                    const quantity = parseInt(e.target.value);
+                                                    if (quantity > 0 && quantity <= item.quantity) {
+                                                        setSelectedItems(prev => {
+                                                            const existing = prev.find(i => i.id === item.id);
+                                                            if (existing) {
+                                                                return prev.map(i => 
+                                                                    i.id === item.id 
+                                                                        ? { ...i, requestQuantity: quantity }
+                                                                        : i
+                                                                );
+                                                            }
+                                                            return [...prev, { ...item, requestQuantity: quantity }];
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowRequestModal(false)}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={handleRequestItems}>
+                        Submit Request
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Return Items Modal */}
+            <Modal show={showReturnModal} onHide={() => setShowReturnModal(false)} size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Return Items</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <div className="table-responsive">
+                        <Table hover>
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>In Use</th>
+                                    <th>Return Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {itemsInUse.map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>
+                                            <Form.Control
+                                                type="number"
+                                                min="1"
+                                                max={item.quantity}
+                                                onChange={(e) => {
+                                                    const quantity = parseInt(e.target.value);
+                                                    if (quantity > 0 && quantity <= item.quantity) {
+                                                        setItemsToReturn(prev => {
+                                                            const existing = prev.find(i => i.id === item.id);
+                                                            if (existing) {
+                                                                return prev.map(i => 
+                                                                    i.id === item.id 
+                                                                        ? { ...i, returnQuantity: quantity }
+                                                                        : i
+                                                                );
+                                                            }
+                                                            return [...prev, { ...item, returnQuantity: quantity }];
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setShowReturnModal(false)}>
+                        Cancel
+                    </Button>
+                    <Button variant="primary" onClick={handleReturnItems}>
+                        Return Items
+                    </Button>
+                </Modal.Footer>
+            </Modal>
 
             {/* Item Requests Section */}
             <Card className="border-0 shadow-sm">
@@ -390,9 +644,19 @@ const EmployeeDashboard = () => {
                                 <tbody>
                                     {itemRequests.map(request => (
                                         <tr key={request.id}>
-                                            <td>{request.itemName}</td>
-                                            <td>{request.warehouseName}</td>
-                                            <td>{new Date(request.requestedAt).toLocaleDateString()}</td>
+                                            <td>
+                                                {request.requestItems?.map(item => (
+                                                    <div key={item.id}>
+                                                        {item.itemName} - Qty: {item.quantity}
+                                                    </div>
+                                                ))}
+                                            </td>
+                                            <td>
+                                                {request.requestItems?.map(item => (
+                                                    <div key={item.id}>{item.warehouseName}</div>
+                                                ))}
+                                            </td>
+                                            <td>{new Date(request.requestDate).toLocaleDateString()}</td>
                                             <td>
                                                 <Badge bg={request.status === 'PENDING' ? 'warning' : 'success'}>
                                                     {request.status}

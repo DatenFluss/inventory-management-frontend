@@ -37,6 +37,8 @@ const ManagerDashboard = () => {
     const [selectedWarehouse, setSelectedWarehouse] = useState(null);
     const [warehouseItems, setWarehouseItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]);
+    const [showReturnItemsModal, setShowReturnItemsModal] = useState(false);
+    const [itemsToReturn, setItemsToReturn] = useState([]);
 
     useEffect(() => {
         fetchData();
@@ -62,13 +64,12 @@ const ManagerDashboard = () => {
                 const [invitesResponse, employeesResponse, requestsResponse, departmentItemsResponse] = await Promise.all([
                     api.get(`/api/department-invites/department/${deptId}/pending`),
                     api.get(`/api/departments/${deptId}/employees`),
-                    api.get('/api/requests/my'),
+                    api.get(`/api/employee-requests/department/${deptId}`),
                     api.get(`/api/inventory/department/${deptId}/items`)
                 ]);
                 setSentInvites(invitesResponse.data || []);
                 setSubordinates(employeesResponse.data || []);
-                // Ensure we handle both possible response structures
-                setPendingRequests(Array.isArray(requestsResponse.data) ? requestsResponse.data : (requestsResponse.data?.requests || []));
+                setPendingRequests(requestsResponse.data || []);
                 setDepartmentItems(departmentItemsResponse.data?.items || []);
             }
         } catch (error) {
@@ -81,14 +82,15 @@ const ManagerDashboard = () => {
 
     const handleRequestAction = async (requestId, approved) => {
         try {
-            await api.post(`/api/requests/${requestId}/process`, null, {
+            await api.post(`/api/employee-requests/${requestId}/process`, null, {
                 params: { approved }
             });
             setSuccess(`Request ${approved ? 'approved' : 'rejected'} successfully`);
             // Refresh pending requests
-            const response = await api.get('/api/requests/my');
-            // Ensure we handle both possible response structures
-            setPendingRequests(Array.isArray(response.data) ? response.data : (response.data?.requests || []));
+            if (departmentId) {
+                const response = await api.get(`/api/employee-requests/department/${departmentId}`);
+                setPendingRequests(response.data || []);
+            }
         } catch (error) {
             setError(`Error ${approved ? 'approving' : 'rejecting'} request`);
             console.error(`Error processing request:`, error);
@@ -201,6 +203,57 @@ const ManagerDashboard = () => {
         });
     };
 
+    const handleReturnItems = async (e) => {
+        e.preventDefault();
+        try {
+            const validItems = itemsToReturn.filter(item => item.returnQuantity && item.returnQuantity > 0);
+            
+            if (validItems.length === 0) {
+                setError('Please select at least one item with a valid quantity');
+                return;
+            }
+
+            // Find the original department items to get their warehouse IDs
+            const returnData = validItems.map(item => {
+                const originalItem = departmentItems.find(deptItem => deptItem.id === item.id);
+                if (!originalItem || !originalItem.warehouseId) {
+                    throw new Error(`Cannot return item ${item.name} - missing warehouse information`);
+                }
+                return {
+                    itemId: item.id,
+                    quantity: parseInt(item.returnQuantity),
+                    warehouseId: originalItem.warehouseId
+                };
+            });
+
+            await api.post(`/api/inventory/department/${departmentId}/return-items`, returnData);
+            setSuccess('Items returned successfully');
+            setShowReturnItemsModal(false);
+            setItemsToReturn([]);
+            
+            // Refresh data
+            await fetchData();
+        } catch (error) {
+            setError(error.response?.data?.message || error.message || 'Failed to return items');
+            console.error('Error returning items:', error);
+        }
+    };
+
+    const handleReturnQuantityChange = (itemId, quantity) => {
+        setItemsToReturn(prevItems => {
+            const existingItem = prevItems.find(item => item.id === itemId);
+            if (existingItem) {
+                return prevItems.map(item =>
+                    item.id === itemId
+                        ? { ...item, returnQuantity: parseInt(quantity) || 0 }
+                        : item
+                );
+            }
+            const item = departmentItems.find(item => item.id === itemId);
+            return [...prevItems, { ...item, returnQuantity: parseInt(quantity) || 0 }];
+        });
+    };
+
     if (isLoading) {
         return (
             <Container className="py-5 text-center">
@@ -275,7 +328,7 @@ const ManagerDashboard = () => {
                                 <ClipboardList size={24} className="text-primary me-3" />
                                 <div>
                                     <h6 className="mb-1">Pending Requests</h6>
-                                    <h3 className="mb-0">{pendingRequests.length}</h3>
+                                    <h3 className="mb-0">{pendingRequests.filter(request => request.status === 'PENDING').length}</h3>
                                 </div>
                             </div>
                         </Card.Body>
@@ -457,34 +510,36 @@ const ManagerDashboard = () => {
                 <Card.Header className="bg-white border-bottom">
                     <div className="d-flex align-items-center">
                         <Package size={24} className="text-primary me-2" />
-                        <h4 className="mb-0">Sent Requests</h4>
+                        <h4 className="mb-0">Employee Item Requests</h4>
                     </div>
                 </Card.Header>
                 <Card.Body>
                     {pendingRequests.length === 0 ? (
                         <div className="text-center py-4">
                             <Package size={48} className="text-muted mb-3" />
-                            <h5 className="text-muted">No Sent Requests</h5>
-                            <p className="text-muted mb-0">You haven't sent any item requests yet.</p>
+                            <h5 className="text-muted">No Employee Requests</h5>
+                            <p className="text-muted mb-0">There are no item requests from employees yet.</p>
                         </div>
                     ) : (
                         <Table responsive>
                             <thead>
                                 <tr>
-                                    <th>Warehouse</th>
+                                    <th>Requester</th>
                                     <th>Items</th>
                                     <th>Status</th>
                                     <th>Date</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {pendingRequests.map(request => (
                                     <tr key={request.id}>
-                                        <td>{request.warehouseName}</td>
+                                        <td>{request.requesterName}</td>
                                         <td>
                                             {request.requestItems?.map(item => (
                                                 <div key={item.id} className="mb-1">
-                                                    {item.itemName} (Qty: {item.quantity})
+                                                    {item.itemName} - Qty: {item.quantity}
+                                                    {item.comments && <small className="text-muted d-block">Note: {item.comments}</small>}
                                                 </div>
                                             )) || 'No items'}
                                         </td>
@@ -498,6 +553,28 @@ const ManagerDashboard = () => {
                                             </Badge>
                                         </td>
                                         <td>{new Date(request.requestDate).toLocaleDateString()}</td>
+                                        <td>
+                                            {request.status === 'PENDING' && (
+                                                <div className="d-flex gap-2">
+                                                    <Button
+                                                        variant="success"
+                                                        size="sm"
+                                                        onClick={() => handleRequestAction(request.id, true)}
+                                                    >
+                                                        <CheckCircle size={16} className="me-1" />
+                                                        Approve
+                                                    </Button>
+                                                    <Button
+                                                        variant="danger"
+                                                        size="sm"
+                                                        onClick={() => handleRequestAction(request.id, false)}
+                                                    >
+                                                        <XCircle size={16} className="me-1" />
+                                                        Reject
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -514,17 +591,29 @@ const ManagerDashboard = () => {
                             <Package size={24} className="text-primary me-2" />
                             <h4 className="mb-0">Department Stock Items</h4>
                         </div>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => {
-                                fetchWarehouses();
-                                setShowWarehouseSelectionModal(true);
-                            }}
-                        >
-                            <Plus size={18} className="me-1" />
-                            Request Items
-                        </Button>
+                        <div className="d-flex gap-2">
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => {
+                                    fetchWarehouses();
+                                    setShowWarehouseSelectionModal(true);
+                                }}
+                            >
+                                <Plus size={18} className="me-1" />
+                                Request Items
+                            </Button>
+                            <Button
+                                variant="outline-primary"
+                                size="sm"
+                                onClick={() => {
+                                    setItemsToReturn([]);
+                                    setShowReturnItemsModal(true);
+                                }}
+                            >
+                                Return Items
+                            </Button>
+                        </div>
                     </div>
                 </Card.Header>
                 <Card.Body>
@@ -633,6 +722,52 @@ const ManagerDashboard = () => {
                                 disabled={selectedItems.length === 0 || selectedItems.every(item => !item.requestQuantity)}
                             >
                                 Submit Request
+                            </Button>
+                        </div>
+                    </Form>
+                </Modal.Body>
+            </Modal>
+
+            {/* Return Items Modal */}
+            <Modal show={showReturnItemsModal} onHide={() => setShowReturnItemsModal(false)} size="lg">
+                <Modal.Header closeButton>
+                    <Modal.Title>Return Items to Warehouse</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    <Form onSubmit={handleReturnItems}>
+                        <Table responsive>
+                            <thead>
+                                <tr>
+                                    <th>Item Name</th>
+                                    <th>Available Quantity</th>
+                                    <th>Return Quantity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {departmentItems.map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>
+                                            <Form.Control
+                                                type="number"
+                                                min="0"
+                                                max={item.quantity}
+                                                onChange={(e) => handleReturnQuantityChange(item.id, e.target.value)}
+                                                value={itemsToReturn.find(i => i.id === item.id)?.returnQuantity || ''}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                        <div className="d-flex justify-content-end gap-2 mt-3">
+                            <Button variant="secondary" onClick={() => setShowReturnItemsModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button variant="primary" type="submit">
+                                Return Items
                             </Button>
                         </div>
                     </Form>
