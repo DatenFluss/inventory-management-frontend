@@ -273,7 +273,10 @@ const OwnerDashboard = () => {
                                 <Box size={24} className="text-primary me-3" />
                                 <div>
                                     <h6 className="mb-1">Total Items</h6>
-                                    <h3 className="mb-0">{departments.reduce((acc, dept) => acc + dept.itemCount, 0)}</h3>
+                                    <h3 className="mb-0">
+                                        {departments.reduce((acc, dept) => acc + dept.itemCount, 0) + 
+                                         warehouses.reduce((acc, warehouse) => acc + warehouse.itemCount, 0)}
+                                    </h3>
                                 </div>
                             </div>
                         </Card.Body>
@@ -311,15 +314,17 @@ const OwnerDashboard = () => {
                                         <div className="text-muted mb-3">
                                             <p className="mb-1 d-flex align-items-center">
                                                 <User size={16} className="me-2" />
-                                                Manager: {warehouse.managerName || 'Not Assigned'}
-                                            </p>
-                                            <p className="mb-1 d-flex align-items-center">
-                                                <User size={16} className="me-2" />
                                                 Operator: {warehouse.operatorName || 'Not Assigned'}
                                             </p>
                                             <p className="mb-1">Location: {warehouse.location}</p>
                                             <p className="mb-0">Items: {warehouse.itemCount}</p>
                                         </div>
+                                        <ProgressBar
+                                            now={(warehouse.itemCount / 100) * 100}
+                                            variant="primary"
+                                            className="mb-3"
+                                            label={`${warehouse.itemCount}%`}
+                                        />
                                         <div className="mt-3">
                                             <Button
                                                 variant="outline-primary"
@@ -376,9 +381,10 @@ const OwnerDashboard = () => {
                                             <p className="mb-0">Items: {dept.itemCount}</p>
                                         </div>
                                         <ProgressBar
-                                            now={(dept.employeeCount / (enterpriseInfo?.totalEmployees || 1)) * 100}
+                                            now={(dept.itemCount / 100) * 100}
                                             variant="primary"
                                             className="mb-3"
+                                            label={`${dept.itemCount}%`}
                                         />
                                         <Button
                                             variant="outline-primary"
@@ -423,9 +429,9 @@ const OwnerDashboard = () => {
                             <thead>
                             <tr>
                                 <th>Employee</th>
+                                <th>Email</th>
                                 <th>Department</th>
                                 <th>Role</th>
-                                <th>Items</th>
                                 <th>Status</th>
                             </tr>
                             </thead>
@@ -436,15 +442,23 @@ const OwnerDashboard = () => {
                                         <div className="d-flex align-items-center">
                                             <UserCircle size={32} className="text-primary me-2" />
                                             <div>
-                                                <p className="mb-0 fw-medium">{employee.username}</p>
-                                                <small className="text-muted">{employee.email}</small>
+                                                <p className="mb-0 fw-medium">{employee.fullName}</p>
+                                                <small className="text-muted">{employee.username}</small>
                                             </div>
                                         </div>
                                     </td>
-                                    <td>{employee.department}</td>
-                                    <td>{employee.role}</td>
-                                    <td>{employee.itemsCount}</td>
-                                    <td>{getStatusBadge(employee.status)}</td>
+                                    <td>{employee.email}</td>
+                                    <td>{employee.departmentName || 'Not Assigned'}</td>
+                                    <td>
+                                        <Badge bg="secondary">
+                                            {employee.roleName?.replace('ROLE_', '')}
+                                        </Badge>
+                                    </td>
+                                    <td>
+                                        <Badge bg={employee.active ? 'success' : 'danger'}>
+                                            {employee.active ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </td>
                                 </tr>
                             ))}
                             </tbody>

@@ -24,6 +24,8 @@ const UnaffiliatedDashboard = () => {
         description: '',
         industry: ''
     });
+    const [inviteLoading, setInviteLoading] = useState({});
+    const [inviteErrors, setInviteErrors] = useState({});
     const navigate = useNavigate();
     const { login } = useAuth();
 
@@ -65,6 +67,9 @@ const UnaffiliatedDashboard = () => {
     };
 
     const handleInviteResponse = async (inviteId, accept) => {
+        setInviteLoading(prev => ({ ...prev, [inviteId]: true }));
+        setInviteErrors(prev => ({ ...prev, [inviteId]: null }));
+        
         try {
             const response = await api.post(`/api/enterprises/invites/${inviteId}/${accept ? 'accept' : 'decline'}`);
             
@@ -98,6 +103,10 @@ const UnaffiliatedDashboard = () => {
             }
         } catch (error) {
             console.error('Error handling invite:', error);
+            const errorMessage = error.response?.data || 'Failed to process invite';
+            setInviteErrors(prev => ({ ...prev, [inviteId]: errorMessage }));
+        } finally {
+            setInviteLoading(prev => ({ ...prev, [inviteId]: false }));
         }
     };
 
@@ -139,15 +148,7 @@ const UnaffiliatedDashboard = () => {
                             </Badge>
                         </Col>
                         <Col md={4} className="text-md-end mt-3 mt-md-0">
-                            <Button
-                                variant="light"
-                                size="lg"
-                                onClick={() => setShowCreateModal(true)}
-                                className="d-flex align-items-center gap-2 ms-auto"
-                            >
-                                <PlusCircle size={20} />
-                                Create Enterprise
-                            </Button>
+                            {/* Remove duplicate Create Enterprise button */}
                         </Col>
                     </Row>
                 </Card.Body>
@@ -199,18 +200,25 @@ const UnaffiliatedDashboard = () => {
                                                     </div>
                                                 </Col>
                                                 <Col md={4} className="text-md-end mt-3 mt-md-0">
+                                                    {inviteErrors[invite.id] && (
+                                                        <Alert variant="danger" className="mb-2">
+                                                            {inviteErrors[invite.id]}
+                                                        </Alert>
+                                                    )}
                                                     <Button
                                                         variant="success"
                                                         className="me-2"
                                                         onClick={() => handleInviteResponse(invite.id, true)}
+                                                        disabled={inviteLoading[invite.id]}
                                                     >
-                                                        Accept
+                                                        {inviteLoading[invite.id] ? 'Processing...' : 'Accept'}
                                                     </Button>
                                                     <Button
                                                         variant="outline-danger"
                                                         onClick={() => handleInviteResponse(invite.id, false)}
+                                                        disabled={inviteLoading[invite.id]}
                                                     >
-                                                        Decline
+                                                        {inviteLoading[invite.id] ? 'Processing...' : 'Decline'}
                                                     </Button>
                                                 </Col>
                                             </Row>
@@ -251,7 +259,7 @@ const UnaffiliatedDashboard = () => {
                 onHide={() => setShowCreateModal(false)}
                 size="lg"
             >
-                <Modal.Header closeButton className="border-bottom">
+                <Modal.Header closeButton>
                     <Modal.Title>
                         <div className="d-flex align-items-center">
                             <Building2 size={24} className="text-primary me-2" />
@@ -259,61 +267,11 @@ const UnaffiliatedDashboard = () => {
                         </div>
                     </Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
-                    {createError && <Alert variant="danger">{createError}</Alert>}
-                    <Form onSubmit={handleCreateEnterprise}>
-                        <Form.Group className="mb-3">
-                            <Form.Label>Enterprise Name</Form.Label>
-                            <Form.Control
-                                type="text"
-                                placeholder="Enter enterprise name"
-                                value={enterpriseForm.name}
-                                onChange={(e) => setEnterpriseForm({
-                                    ...enterpriseForm,
-                                    name: e.target.value
-                                })}
-                                required
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Industry</Form.Label>
-                            <Form.Control
-                                type="text"
-                                placeholder="Enter industry type"
-                                value={enterpriseForm.industry}
-                                onChange={(e) => setEnterpriseForm({
-                                    ...enterpriseForm,
-                                    industry: e.target.value
-                                })}
-                                required
-                            />
-                        </Form.Group>
-
-                        <Form.Group className="mb-3">
-                            <Form.Label>Description</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                rows={3}
-                                placeholder="Describe your enterprise"
-                                value={enterpriseForm.description}
-                                onChange={(e) => setEnterpriseForm({
-                                    ...enterpriseForm,
-                                    description: e.target.value
-                                })}
-                                required
-                            />
-                        </Form.Group>
-
-                        <div className="d-flex justify-content-end gap-2">
-                            <Button variant="outline-secondary" onClick={() => setShowCreateModal(false)}>
-                                Cancel
-                            </Button>
-                            <Button variant="primary" type="submit">
-                                Create Enterprise
-                            </Button>
-                        </div>
-                    </Form>
+                <Modal.Body className="text-center py-4">
+                    <p className="mb-4">Will be implemented in future versions</p>
+                    <Button variant="primary" onClick={() => setShowCreateModal(false)}>
+                        OK
+                    </Button>
                 </Modal.Body>
             </Modal>
         </Container>

@@ -19,11 +19,15 @@ const NavBar = () => {
     return (
         <Navbar bg="dark" variant="dark" expand="lg">
             <Container>
-                <Navbar.Brand as={Link} to="/">Enterprise Manager</Navbar.Brand>
+                {!authToken ? (
+                    <Navbar.Brand as={Link} to="/">Enterprise Manager</Navbar.Brand>
+                ) : (
+                    <Navbar.Brand>Enterprise Manager</Navbar.Brand>
+                )}
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto">
-                        <Nav.Link as={Link} to="/">Home</Nav.Link>
+                        {/* Home button removed */}
                     </Nav>
                     <Nav>
                         {!authToken ? (
@@ -32,22 +36,12 @@ const NavBar = () => {
                                 <Nav.Link as={Link} to="/register">Register</Nav.Link>
                             </>
                         ) : (
-                            <>
-                                {userRole && (
-                                    <Nav.Link
-                                        as={Link}
-                                        to={`/${userRole.toLowerCase()}-dashboard`}
-                                    >
-                                        Dashboard
-                                    </Nav.Link>
-                                )}
-                                <Button
-                                    variant="outline-light"
-                                    onClick={handleLogout}
-                                >
-                                    Logout
-                                </Button>
-                            </>
+                            <Button
+                                variant="outline-light"
+                                onClick={handleLogout}
+                            >
+                                Logout
+                            </Button>
                         )}
                     </Nav>
                 </Navbar.Collapse>

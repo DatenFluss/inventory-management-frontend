@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Form, Alert, Modal, Table } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Alert, Modal, Table, Badge } from 'react-bootstrap';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import { 
@@ -10,7 +10,11 @@ import {
     ClipboardList,
     Plus,
     CheckCircle,
-    XCircle
+    XCircle,
+    UserCircle,
+    Mail,
+    Box,
+    MapPin
 } from 'lucide-react';
 
 const WarehouseOperatorDashboard = () => {
@@ -22,6 +26,7 @@ const WarehouseOperatorDashboard = () => {
     const [showAddItemModal, setShowAddItemModal] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
 
     // Form state for adding new item
     const [itemForm, setItemForm] = useState({
@@ -54,6 +59,8 @@ const WarehouseOperatorDashboard = () => {
         } catch (error) {
             setError('Failed to fetch data');
             console.error('Error fetching data:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -73,9 +80,11 @@ const WarehouseOperatorDashboard = () => {
 
     const handleRequest = async (requestId, approved) => {
         try {
-            await api.post(`/api/requests/${requestId}/process`, {
-                approved,
-                responseComments: approved ? 'Request approved' : 'Request rejected'
+            await api.post(`/api/requests/${requestId}/process`, null, {
+                params: {
+                    approved,
+                    responseComments: approved ? 'Request approved' : 'Request rejected'
+                }
             });
             setSuccess(`Request ${approved ? 'approved' : 'rejected'} successfully`);
             await fetchData();
@@ -84,52 +93,117 @@ const WarehouseOperatorDashboard = () => {
         }
     };
 
+    if (isLoading) {
+        return (
+            <Container className="py-5 text-center">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+            </Container>
+        );
+    }
+
     return (
         <Container fluid className="py-4">
-            {error && <Alert variant="danger" className="mb-4">{error}</Alert>}
-            {success && <Alert variant="success" className="mb-4">{success}</Alert>}
+            {error && <Alert variant="danger" dismissible onClose={() => setError('')} className="mb-4">{error}</Alert>}
+            {success && <Alert variant="success" dismissible onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
 
-            {/* User and Enterprise Info */}
+            {/* Welcome Banner */}
+            <Card className="mb-4 bg-primary text-white border-0 shadow">
+                <Card.Body className="py-4">
+                    <Row className="align-items-center">
+                        <Col md={8}>
+                            <div className="d-flex align-items-center mb-3">
+                                <UserCircle size={48} className="me-3" />
+                                <div>
+                                    <h2 className="mb-0">Hello, {userInfo?.fullName}!</h2>
+                                    <div className="opacity-75 mt-1">
+                                        <p className="mb-1 d-flex align-items-center">
+                                            <User size={16} className="me-2" />
+                                            {userInfo?.username}
+                                        </p>
+                                        <p className="mb-0 d-flex align-items-center">
+                                            <Mail size={16} className="me-2" />
+                                            {userInfo?.email}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <Badge bg="light" text="dark" className="px-3 py-2">
+                                Warehouse Operator
+                            </Badge>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
+
+            {/* Overview Cards */}
             <Row className="mb-4">
                 <Col md={4}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
-                            <div className="d-flex align-items-center mb-3">
-                                <User size={24} className="text-primary me-2" />
-                                <h5 className="mb-0">Operator Information</h5>
+                            <div className="d-flex align-items-center">
+                                <Box size={24} className="text-primary me-3" />
+                                <div>
+                                    <h6 className="mb-1">Total Items</h6>
+                                    <h3 className="mb-0">{items.reduce((acc, item) => acc + item.quantity, 0)}</h3>
+                                </div>
                             </div>
-                            <p className="mb-1"><strong>Name:</strong> {userInfo?.fullName}</p>
-                            <p className="mb-1"><strong>Email:</strong> {userInfo?.email}</p>
-                            <p className="mb-0"><strong>Role:</strong> Warehouse Operator</p>
                         </Card.Body>
                     </Card>
                 </Col>
                 <Col md={4}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
-                            <div className="d-flex align-items-center mb-3">
-                                <Building2 size={24} className="text-primary me-2" />
-                                <h5 className="mb-0">Enterprise Information</h5>
+                            <div className="d-flex align-items-center">
+                                <Package size={24} className="text-primary me-3" />
+                                <div>
+                                    <h6 className="mb-1">Item Types</h6>
+                                    <h3 className="mb-0">{items.length}</h3>
+                                </div>
                             </div>
-                            <p className="mb-1"><strong>Name:</strong> {enterprise?.name}</p>
-                            <p className="mb-0"><strong>Email:</strong> {enterprise?.contactEmail}</p>
                         </Card.Body>
                     </Card>
                 </Col>
                 <Col md={4}>
                     <Card className="border-0 shadow-sm">
                         <Card.Body>
-                            <div className="d-flex align-items-center mb-3">
-                                <Warehouse size={24} className="text-primary me-2" />
-                                <h5 className="mb-0">Warehouse Information</h5>
+                            <div className="d-flex align-items-center">
+                                <ClipboardList size={24} className="text-primary me-3" />
+                                <div>
+                                    <h6 className="mb-1">Pending Requests</h6>
+                                    <h3 className="mb-0">{requests.length}</h3>
+                                </div>
                             </div>
-                            <p className="mb-1"><strong>Name:</strong> {warehouse?.name}</p>
-                            <p className="mb-1"><strong>Location:</strong> {warehouse?.location}</p>
-                            <p className="mb-0"><strong>Items:</strong> {warehouse?.itemCount || 0}</p>
                         </Card.Body>
                     </Card>
                 </Col>
             </Row>
+
+            {/* Warehouse Information */}
+            <Card className="border-0 shadow-sm mb-4">
+                <Card.Header className="bg-white border-bottom">
+                    <div className="d-flex align-items-center">
+                        <Building2 size={24} className="text-primary me-2" />
+                        <h4 className="mb-0">Warehouse Information</h4>
+                    </div>
+                </Card.Header>
+                <Card.Body>
+                    <Row>
+                        <Col md={6}>
+                            <p className="mb-2"><strong>Warehouse Name:</strong> {warehouse?.name}</p>
+                            <p className="mb-2"><strong>Enterprise:</strong> {enterprise?.name}</p>
+                        </Col>
+                        <Col md={6}>
+                            <p className="mb-2 d-flex align-items-center">
+                                <MapPin size={16} className="text-primary me-2" />
+                                <strong>Location:</strong> {warehouse?.location}
+                            </p>
+                            <p className="mb-2"><strong>Total Items:</strong> {items.reduce((acc, item) => acc + item.quantity, 0)}</p>
+                        </Col>
+                    </Row>
+                </Card.Body>
+            </Card>
 
             {/* Warehouse Items */}
             <Card className="border-0 shadow-sm mb-4">
@@ -137,7 +211,7 @@ const WarehouseOperatorDashboard = () => {
                     <div className="d-flex align-items-center justify-content-between">
                         <div className="d-flex align-items-center">
                             <Package size={24} className="text-primary me-2" />
-                            <h5 className="mb-0">Warehouse Items</h5>
+                            <h4 className="mb-0">Warehouse Items</h4>
                         </div>
                         <Button
                             variant="primary"
@@ -150,26 +224,36 @@ const WarehouseOperatorDashboard = () => {
                     </div>
                 </Card.Header>
                 <Card.Body>
-                    <Table responsive>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Description</th>
-                                <th>Quantity</th>
-                                <th>Last Updated</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {items.map(item => (
-                                <tr key={item.id}>
-                                    <td>{item.name}</td>
-                                    <td>{item.description}</td>
-                                    <td>{item.quantity}</td>
-                                    <td>{new Date(item.updatedAt).toLocaleDateString()}</td>
+                    {items.length === 0 ? (
+                        <div className="text-center py-4">
+                            <Package size={48} className="text-muted mb-3" />
+                            <h5 className="text-muted">No Items in Warehouse</h5>
+                            <p className="text-muted mb-0">
+                                Start adding items to your warehouse using the "Add Item" button above.
+                            </p>
+                        </div>
+                    ) : (
+                        <Table responsive>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Quantity</th>
+                                    <th>Last Updated</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </Table>
+                            </thead>
+                            <tbody>
+                                {items.map(item => (
+                                    <tr key={item.id}>
+                                        <td>{item.name}</td>
+                                        <td>{item.description}</td>
+                                        <td>{item.quantity}</td>
+                                        <td>{item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : 'N/A'}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    )}
                 </Card.Body>
             </Card>
 
@@ -178,56 +262,68 @@ const WarehouseOperatorDashboard = () => {
                 <Card.Header className="bg-white border-bottom">
                     <div className="d-flex align-items-center">
                         <ClipboardList size={24} className="text-primary me-2" />
-                        <h5 className="mb-0">Pending Requests</h5>
+                        <h4 className="mb-0">Pending Requests</h4>
                     </div>
                 </Card.Header>
                 <Card.Body>
-                    <Table responsive>
-                        <thead>
-                            <tr>
-                                <th>Requester</th>
-                                <th>Department</th>
-                                <th>Items</th>
-                                <th>Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {requests.map(request => (
-                                <tr key={request.id}>
-                                    <td>{request.requesterName}</td>
-                                    <td>{request.departmentName}</td>
-                                    <td>
-                                        {request.requestItems.map(item => (
-                                            <div key={item.id}>
-                                                {item.name} (Qty: {item.quantity})
-                                            </div>
-                                        ))}
-                                    </td>
-                                    <td>{new Date(request.requestDate).toLocaleDateString()}</td>
-                                    <td>
-                                        <Button
-                                            variant="success"
-                                            size="sm"
-                                            className="me-2"
-                                            onClick={() => handleRequest(request.id, true)}
-                                        >
-                                            <CheckCircle size={16} className="me-1" />
-                                            Approve
-                                        </Button>
-                                        <Button
-                                            variant="danger"
-                                            size="sm"
-                                            onClick={() => handleRequest(request.id, false)}
-                                        >
-                                            <XCircle size={16} className="me-1" />
-                                            Reject
-                                        </Button>
-                                    </td>
+                    {requests.length === 0 ? (
+                        <div className="text-center py-4">
+                            <ClipboardList size={48} className="text-muted mb-3" />
+                            <h5 className="text-muted">No Pending Requests</h5>
+                            <p className="text-muted mb-0">All item requests have been processed.</p>
+                        </div>
+                    ) : (
+                        <Table responsive>
+                            <thead>
+                                <tr>
+                                    <th>Requester</th>
+                                    <th>Department</th>
+                                    <th>Items</th>
+                                    <th>Total Quantity</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </Table>
+                            </thead>
+                            <tbody>
+                                {requests.map(request => (
+                                    <tr key={request.id}>
+                                        <td>{request.requesterName}</td>
+                                        <td>{request.departmentName}</td>
+                                        <td>
+                                            {request.requestItems?.map(item => (
+                                                <div key={item.id} className="mb-1">
+                                                    {item.itemName} (Qty: {item.quantity})
+                                                </div>
+                                            )) || 'No items'}
+                                        </td>
+                                        <td>
+                                            {request.requestItems?.reduce((total, item) => total + item.quantity, 0) || 0}
+                                        </td>
+                                        <td>{new Date(request.requestDate).toLocaleDateString()}</td>
+                                        <td>
+                                            <Button
+                                                variant="success"
+                                                size="sm"
+                                                className="me-2"
+                                                onClick={() => handleRequest(request.id, true)}
+                                            >
+                                                <CheckCircle size={16} className="me-1" />
+                                                Approve
+                                            </Button>
+                                            <Button
+                                                variant="danger"
+                                                size="sm"
+                                                onClick={() => handleRequest(request.id, false)}
+                                            >
+                                                <XCircle size={16} className="me-1" />
+                                                Reject
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </Table>
+                    )}
                 </Card.Body>
             </Card>
 
@@ -268,14 +364,14 @@ const WarehouseOperatorDashboard = () => {
                             <Form.Label>Quantity</Form.Label>
                             <Form.Control
                                 type="number"
-                                min="0"
                                 placeholder="Enter quantity"
                                 value={itemForm.quantity}
                                 onChange={(e) => setItemForm({
                                     ...itemForm,
-                                    quantity: parseInt(e.target.value)
+                                    quantity: parseInt(e.target.value) || 0
                                 })}
                                 required
+                                min="0"
                             />
                         </Form.Group>
                         <div className="d-flex justify-content-end gap-2">
